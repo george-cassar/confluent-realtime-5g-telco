@@ -24,17 +24,32 @@ A real-time 5G cell tower telemetry monitoring demo set in **Madrid, Spain**. Mo
 
 ---
 
+## Demo Preview
+
+https://github.com/user-attachments/assets/placeholder
+
+> **▶ Click to play** — or [download the recording](video/5G_Network_Ops_Realtime_AI_CFLT_20260813_NS.mov) directly.
+
+<video src="video/5G_Network_Ops_Realtime_AI_CFLT_20260813_NS.mov" controls width="100%">
+  <a href="video/5G_Network_Ops_Realtime_AI_CFLT_20260813_NS.mov">Download demo video</a>
+</video>
+
+The recording shows the full end-to-end demo: the mock generator emitting Avro-encoded telemetry for 16 Madrid towers, the Flink SQL 60-second tumbling window surfacing anomaly alerts, tower markers flipping red on the Leaflet map, the live stats sidebar updating in real time, and the AI chat panel querying the stream via the Confluent MCP server.
+
+---
+
 ## Table of Contents
 
-1. [Requirements](#requirements)
+1. [Demo Preview](#demo-preview)
+2. [Requirements](#requirements)
    - [Functional Requirements](#functional-requirements)
    - [Non-Functional Requirements](#non-functional-requirements)
-2. [Technology Stack](#technology-stack)
-3. [Project Structure](#project-structure)
-4. [Architecture Overview](#architecture-overview)
-5. [Prerequisites](#prerequisites)
-6. [Scripts Reference](#scripts-reference)
-7. [Setup & Execution](#setup--execution)
+3. [Technology Stack](#technology-stack)
+4. [Project Structure](#project-structure)
+5. [Architecture Overview](#architecture-overview)
+6. [Prerequisites](#prerequisites)
+7. [Scripts Reference](#scripts-reference)
+8. [Setup & Execution](#setup--execution)
    - [Option A — Scripts (recommended)](#option-a--scripts-recommended)
    - [Option B — Manual step-by-step](#option-b--manual-step-by-step)
      - [Step 1 — Configure Terraform secrets](#step-1--configure-terraform-secrets)
@@ -43,17 +58,17 @@ A real-time 5G cell tower telemetry monitoring demo set in **Madrid, Spain**. Mo
      - [Step 4 — Start the mock generator](#step-4--start-the-mock-generator)
      - [Step 5 — Start the dashboard server](#step-5--start-the-dashboard-server)
      - [Step 6 — Open the dashboard](#step-6--open-the-dashboard)
-8. [Kafka Topics](#kafka-topics)
-9. [Schema Registry](#schema-registry)
-10. [Flink SQL Statement](#flink-sql-statement)
-11. [Telemetry Message Schema](#telemetry-message-schema)
-12. [Anomaly Alert Message Schema](#anomaly-alert-message-schema)
-13. [MCP Integration](#mcp-integration)
-14. [Environment Variables Reference](#environment-variables-reference)
-15. [Terraform Outputs Reference](#terraform-outputs-reference)
-16. [Security](#security)
-17. [Teardown](#teardown)
-18. [Troubleshooting](#troubleshooting)
+9. [Kafka Topics](#kafka-topics)
+10. [Schema Registry](#schema-registry)
+11. [Flink SQL Statement](#flink-sql-statement)
+12. [Telemetry Message Schema](#telemetry-message-schema)
+13. [Anomaly Alert Message Schema](#anomaly-alert-message-schema)
+14. [MCP Integration](#mcp-integration)
+15. [Environment Variables Reference](#environment-variables-reference)
+16. [Terraform Outputs Reference](#terraform-outputs-reference)
+17. [Security](#security)
+18. [Teardown](#teardown)
+19. [Troubleshooting](#troubleshooting)
 
 ---
 
