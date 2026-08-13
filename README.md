@@ -25,9 +25,6 @@ A real-time 5G cell tower telemetry monitoring demo set in **Madrid, Spain**. Mo
 ---
 
 ## Demo Preview
-
-https://github.com/user-attachments/assets/placeholder
-
 > **▶ Click to play** — or [download the recording](video/5G_Network_Ops_Realtime_AI_CFLT_20260813_NS.mov) directly.
 
 <video src="video/5G_Network_Ops_Realtime_AI_CFLT_20260813_NS.mov" controls width="100%">
