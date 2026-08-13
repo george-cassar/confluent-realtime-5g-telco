@@ -1,0 +1,16 @@
+{
+  "name": "celltower-server",
+  "version": "1.0.0",
+  "description": "Express + Socket.io dashboard backend with Kafka consumer and MCP client (Madrid demo)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@confluentinc/schemaregistry": "^1.0.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "kafkajs": "^2.2.4",
+    "socket.io": "^4.7.5"
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "type": "record",
+  "name": "AnomalyAlert",
+  "namespace": "com.celltower",
+  "doc": "Aggregated anomaly alert produced by the Flink SQL 60-second tumbling-window job.",
+  "fields": [
+    {
+      "name": "tower_id",
+      "type": "string",
+      "doc": "Unique tower identifier that triggered the anomaly window"
+    },
+    {
+      "name": "tower_name",
+      "type": "string",
+      "default": "",
+      "doc": "Human-readable tower location name, e.g. Salamanca"
+    },
+    {
+      "name": "latitude",
+      "type": "double",
+      "default": 0.0,
+      "doc": "WGS-84 latitude of the tower"
+    },
+    {
+      "name": "longitude",
+      "type": "double",
+      "default": 0.0,
+      "doc": "WGS-84 longitude of the tower"
+    },
+    {
+      "name": "avg_temperature",
+      "type": "double",
+      "doc": "Average temperature across all anomalous readings in the window (°C)"
+    },
+    {
+      "name": "avg_signal",
+      "type": "double",
+      "doc": "Average signal strength across all anomalous readings in the window (dBm)"
+    },
+    {
+      "name": "max_temperature",
+      "type": "double",
+      "doc": "Peak temperature recorded in the window (°C)"
+    },
+    {
+      "name": "min_signal",
+      "type": "double",
+      "doc": "Worst (most negative) signal strength recorded in the window (dBm)"
+    },
+    {
+      "name": "event_count",
+      "type": "long",
+      "doc": "Total number of anomalous events aggregated in the window"
+    },
+    {
+      "name": "window_start",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Inclusive start of the 60-second tumbling window (epoch milliseconds)"
+    },
+    {
+      "name": "window_end",
+      "type": {
+        "type": "long",
+        "logicalType": "timestamp-millis"
+      },
+      "doc": "Exclusive end of the 60-second tumbling window (epoch milliseconds)"
+    }
+  ]
+}

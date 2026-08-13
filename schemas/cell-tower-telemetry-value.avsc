@@ -1,0 +1,53 @@
+{
+  "type": "record",
+  "name": "CellTowerTelemetry",
+  "namespace": "com.celltower",
+  "doc": "Raw telemetry reading emitted by a 5G cell tower every 2 seconds.",
+  "fields": [
+    {
+      "name": "tower_id",
+      "type": "string",
+      "doc": "Unique tower identifier, e.g. TWR-001"
+    },
+    {
+      "name": "tower_name",
+      "type": "string",
+      "doc": "Human-readable tower location name, e.g. Retiro"
+    },
+    {
+      "name": "latitude",
+      "type": "double",
+      "doc": "WGS-84 latitude of the tower"
+    },
+    {
+      "name": "longitude",
+      "type": "double",
+      "doc": "WGS-84 longitude of the tower"
+    },
+    {
+      "name": "temperature",
+      "type": "double",
+      "doc": "Tower hardware temperature in degrees Celsius. Anomaly threshold: > 85.0 °C"
+    },
+    {
+      "name": "signal_strength",
+      "type": "double",
+      "doc": "Downlink signal strength in dBm. Anomaly threshold: < -90.0 dBm"
+    },
+    {
+      "name": "cpu_load",
+      "type": "double",
+      "doc": "CPU utilisation percentage (0–100)"
+    },
+    {
+      "name": "event_time",
+      "type": {"type": "long", "logicalType": "timestamp-millis"},
+      "doc": "Unix epoch milliseconds UTC of the reading. Avro timestamp-millis maps to Flink TIMESTAMP_LTZ(3), required for TUMBLE() windowing."
+    },
+    {
+      "name": "is_anomaly",
+      "type": "boolean",
+      "doc": "True when the generator deliberately produced an anomalous reading"
+    }
+  ]
+}

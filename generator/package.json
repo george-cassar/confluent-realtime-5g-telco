@@ -1,0 +1,14 @@
+{
+  "name": "celltower-generator",
+  "version": "1.0.0",
+  "description": "Mock 5G cell-tower telemetry producer for Confluent Cloud (Madrid demo)",
+  "main": "producer.js",
+  "scripts": {
+    "start": "node producer.js"
+  },
+  "dependencies": {
+    "@confluentinc/schemaregistry": "^1.0.0",
+    "dotenv": "^16.4.5",
+    "kafkajs": "^2.2.4"
+  }
+}

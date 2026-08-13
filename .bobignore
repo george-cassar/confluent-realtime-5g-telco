@@ -1,0 +1,11 @@
+# Secrets and localized state
+*.tfvars
+*.tfstate
+*.tfstate.backup
+.env
+.DS_Store
+
+# Dependencies
+node_modules/
+
+.terraform/

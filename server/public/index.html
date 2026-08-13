@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>5G Cell Tower Anomaly Monitor — Madrid</title>
+
+  <!-- IBM Plex Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      /* ── Dynatrace-style dark navy palette ── */
+      --bg:         #0f1923;   /* deep navy page bg          */
+      --nav:        #131f2e;   /* slightly lighter nav rail  */
+      --surface:    #1a2740;   /* card / panel surfaces      */
+      --surface2:   #1f3050;   /* elevated surfaces          */
+      --border:     #263a57;   /* default borders            */
+      --border-hi:  #3a5373;   /* hover/focus borders        */
+      --text:       #e8f0f8;   /* primary text               */
+      --text2:      #ccdaec;   /* secondary text             */
+      --muted:      #7a96b5;   /* muted / label text         */
+
+      /* accent — IBM Blue 40 (brighter on dark) */
+      --accent:     #4589ff;
+      --accent-dim: rgba(69,137,255,.15);
+
+      /* semantic colours */
+      --ok:         #42be65;   /* green  */
+      --ok-bg:      rgba(66,190,101,.12);
+      --warn:       #fa4d56;   /* red    */
+      --warn-bg:    rgba(250,77,86,.12);
+      --warn-soft:  rgba(250,77,86,.08);
+      --amber:      #f1c21b;   /* yellow */
+      --amber-bg:   rgba(241,194,27,.12);
+      --purple:     #a56eff;   /* purple */
+      --purple-bg:  rgba(165,110,255,.12);
+
+      --font:       "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+      --font-mono:  "IBM Plex Mono", "Courier New", monospace;
+      --radius:     6px;
+    }
+
+    html, body { height: 100%; font-family: var(--font); background: var(--bg); color: var(--text); overflow: hidden; }
+    body { display: flex; flex-direction: column; }
+
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 2px; }
+
+    /* ══════════════════════════════════════════════════════
+       TOPBAR
+    ══════════════════════════════════════════════════════ */
+    .topbar {
+      flex-shrink: 0;
+      height: 48px;
+      background: var(--nav);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      gap: 14px;
+      z-index: 100;
+    }
+    .topbar-logo {
+      display: flex; align-items: center; gap: 8px;
+    }
+    .topbar-logo svg { flex-shrink: 0; }
+    .topbar-logo span {
+      font-size: 14px; font-weight: 600; color: var(--text);
+      letter-spacing: .01em; white-space: nowrap;
+    }
+    .topbar-divider { width: 1px; height: 20px; background: var(--border); }
+    .topbar-breadcrumb {
+      font-size: 13px; color: var(--muted);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .topbar-breadcrumb .sep { opacity: .4; }
+    .topbar-breadcrumb .current { color: var(--text2); font-weight: 500; }
+    .topbar-right {
+      margin-left: auto; display: flex; align-items: center; gap: 12px;
+    }
+    .live-pill {
+      display: flex; align-items: center; gap: 6px;
+      background: var(--ok-bg);
+      border: 1px solid rgba(66,190,101,.3);
+      border-radius: 20px;
+      padding: 3px 10px;
+      font-size: 12px; font-weight: 600; color: var(--ok);
+      letter-spacing: .04em;
+    }
+    .live-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--ok);
+      position: relative;
+    }
+    .live-dot::after {
+      content: ''; position: absolute; inset: -3px;
+      border-radius: 50%; border: 1.5px solid var(--ok); opacity: 0;
+      animation: pulse 2s ease-out infinite;
+    }
+    @keyframes pulse {
+      0%   { transform: scale(.7); opacity: .7; }
+      100% { transform: scale(2);  opacity: 0;  }
+    }
+    .live-dot.warn { background: var(--warn); }
+    .live-dot.warn::after { border-color: var(--warn); }
+    .topbar-time {
+      font-size: 12px; color: var(--muted);
+      font-family: var(--font-mono);
+    }
+
+    /* ══════════════════════════════════════════════════════
+       MAIN BODY  (left rail + content)
+    ══════════════════════════════════════════════════════ */
+    .shell {
+      flex: 1; min-height: 0;
+      display: flex; overflow: hidden;
+    }
+
+    /* ── Left nav rail ── */
+    .nav-rail {
+      width: 52px; flex-shrink: 0;
+      background: var(--nav);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      align-items: center;
+      padding: 10px 0; gap: 4px;
+    }
+    .nav-btn {
+      width: 36px; height: 36px; border-radius: var(--radius);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--muted);
+      transition: background .15s, color .15s;
+      border: none; background: transparent;
+    }
+    .nav-btn:hover { background: var(--surface); color: var(--text2); }
+    .nav-btn.active { background: var(--accent-dim); color: var(--accent); }
+    .nav-rail-spacer { flex: 1; }
+
+    /* ── Content area ── */
+    .content {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ══════════════════════════════════════════════════════
+       KPI ROW
+    ══════════════════════════════════════════════════════ */
+    .kpi-row {
+      flex-shrink: 0;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .kpi-tile {
+      background: var(--surface);
+      padding: 12px 18px;
+      display: flex; align-items: center; gap: 14px;
+      transition: background .15s;
+      cursor: default;
+    }
+    .kpi-tile:hover { background: var(--surface2); }
+    .kpi-icon-wrap {
+      width: 38px; height: 38px; border-radius: var(--radius);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .kpi-icon-wrap.blue   { background: var(--accent-dim);  border: 1px solid rgba(69,137,255,.3); }
+    .kpi-icon-wrap.green  { background: var(--ok-bg);        border: 1px solid rgba(66,190,101,.3); }
+    .kpi-icon-wrap.red    { background: var(--warn-bg);      border: 1px solid rgba(250,77,86,.3);  }
+    .kpi-icon-wrap.amber  { background: var(--amber-bg);     border: 1px solid rgba(241,194,27,.3); }
+    .kpi-icon-wrap.purple { background: var(--purple-bg);    border: 1px solid rgba(165,110,255,.3);}
+    .kpi-text { display: flex; flex-direction: column; gap: 2px; }
+    .kpi-num {
+      font-size: 28px; font-weight: 700; line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .kpi-num.blue   { color: var(--accent); }
+    .kpi-num.green  { color: var(--ok); }
+    .kpi-num.red    { color: var(--warn); }
+    .kpi-num.amber  { color: var(--amber); }
+    .kpi-num.purple { color: var(--purple); }
+    .kpi-lbl {
+      font-size: 11px; font-weight: 500; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .08em;
+    }
+
+    /* ══════════════════════════════════════════════════════
+       MIDDLE: map + right panel
+    ══════════════════════════════════════════════════════ */
+    .middle {
+      flex: 1; min-height: 0;
+      display: flex; overflow: hidden;
+    }
+
+    /* ── Map ── */
+    #map { flex: 1; min-width: 0; }
+    .leaflet-container { background: #e8e4dc; }
+
+    /* ── Right panel ── */
+    .right-panel {
+      width: 580px; flex-shrink: 0;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+    .panel-header {
+      flex-shrink: 0;
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .panel-header-title {
+      font-size: 12px; font-weight: 600; color: var(--text2);
+      text-transform: uppercase; letter-spacing: .08em;
+    }
+    .panel-header-count {
+      margin-left: auto;
+      font-size: 12px; color: var(--muted); font-family: var(--font-mono);
+    }
+
+    /* Tower grid — 2 columns */
+    .tower-grid {
+      flex: 1; overflow-y: auto;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--border);
+      align-content: start;
+    }
+    .tower-tile {
+      background: var(--surface);
+      padding: 10px 12px;
+      cursor: default;
+      transition: background .15s;
+      border-left: 2px solid transparent;
+    }
+    .tower-tile:hover { background: var(--surface2); }
+    .tower-tile.anomaly {
+      border-left-color: var(--warn);
+      background: rgba(250,77,86,.04);
+    }
+    .tt-row1 {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 6px;
+    }
+    .tt-id { font-size: 12px; font-weight: 600; color: var(--text); font-family: var(--font-mono); }
+    .tt-name { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .tt-badge {
+      font-size: 10px; font-weight: 600;
+      padding: 2px 7px; border-radius: 3px;
+      letter-spacing: .04em;
+    }
+    .tt-badge.ok   { background: var(--ok-bg);   color: var(--ok);   border: 1px solid rgba(66,190,101,.3); }
+    .tt-badge.bad  { background: var(--warn-bg);  color: var(--warn); border: 1px solid rgba(250,77,86,.3);  }
+    .tt-metrics {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 3px 8px; font-size: 11px;
+    }
+    .tm-label { color: var(--muted); }
+    .tm-val   { text-align: right; font-weight: 500; font-family: var(--font-mono); color: var(--text2); }
+    .tm-val.hot  { color: var(--warn); }
+    .tm-val.weak { color: var(--warn); }
+
+    /* ══════════════════════════════════════════════════════
+       BOTTOM TRAY — anomaly event log
+    ══════════════════════════════════════════════════════ */
+    .bottom-tray {
+      flex-shrink: 0; height: 170px;
+      background: var(--nav);
+      border-top: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .tray-bar {
+      flex-shrink: 0;
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .tray-bar-title {
+      font-size: 12px; font-weight: 600; color: var(--text2);
+      text-transform: uppercase; letter-spacing: .08em;
+    }
+    .tray-badge {
+      font-size: 11px; font-weight: 700;
+      padding: 1px 7px; border-radius: 10px;
+      background: var(--warn-bg); color: var(--warn);
+      border: 1px solid rgba(250,77,86,.3);
+      font-variant-numeric: tabular-nums;
+    }
+    .tray-empty {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      font-size: 13px; color: var(--muted); font-style: italic;
+    }
+    .tray-scroll {
+      flex: 1; overflow-x: auto; overflow-y: hidden;
+      display: flex; align-items: stretch; gap: 8px;
+      padding: 8px 14px;
+    }
+    .ev-card {
+      flex-shrink: 0; width: 215px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--warn);
+      border-radius: var(--radius);
+      padding: 9px 11px;
+      display: flex; flex-direction: column; gap: 5px;
+      animation: slideIn .2s ease;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-10px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    .ev-row1 { display: flex; justify-content: space-between; align-items: center; }
+    .ev-tower { font-size: 13px; font-weight: 700; color: var(--warn); font-family: var(--font-mono); }
+    .ev-time  { font-size: 11px; color: var(--muted); }
+    .ev-grid  {
+      display: grid; grid-template-columns: auto 1fr;
+      gap: 2px 10px; font-size: 12px;
+    }
+    .ev-grid .lbl { color: var(--muted); }
+    .ev-grid .val { text-align: right; font-weight: 500; font-family: var(--font-mono); color: var(--text2); }
+    .ev-footer { font-size: 11px; color: var(--muted); }
+    .ev-footer b { color: var(--amber); }
+
+    /* ══════════════════════════════════════════════════════
+       MAP LABELS + TOOLTIP
+    ══════════════════════════════════════════════════════ */
+    .tower-label {
+      background: rgba(15,25,35,.82);
+      border: 1px solid rgba(69,137,255,.4);
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 11px; font-family: var(--font-mono);
+      color: #c8daf2;
+      white-space: nowrap; pointer-events: none;
+      box-shadow: 0 2px 6px rgba(0,0,0,.45);
+    }
+    .tower-label.anomaly {
+      background: rgba(250,77,86,.85);
+      border-color: var(--warn); color: #fff; font-weight: 700;
+    }
+
+    #tower-tooltip {
+      position: fixed; z-index: 9999;
+      pointer-events: none; display: none;
+      min-width: 230px;
+      background: #1a2740;
+      border: 1px solid var(--border-hi);
+      border-radius: var(--radius);
+      padding: 13px 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.55);
+      font-size: 13px; line-height: 1.6;
+    }
+    #tower-tooltip.anomaly { border-color: var(--warn); box-shadow: 0 8px 24px var(--warn-bg); }
+    .ttt-hdr  { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .ttt-id   { font-size: 14px; font-weight: 700; color: var(--text); font-family: var(--font-mono); }
+    .ttt-loc  { font-size: 12px; color: var(--muted); }
+    .ttt-pill {
+      font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px;
+      font-family: var(--font-mono);
+    }
+    .ttt-pill.ok   { background: var(--ok-bg);  color: var(--ok);   border: 1px solid rgba(66,190,101,.3); }
+    .ttt-pill.bad  { background: var(--warn-bg); color: var(--warn); border: 1px solid rgba(250,77,86,.3);  }
+    .ttt-metrics   { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; }
+    .ttt-metrics .lbl { color: var(--muted); }
+    .ttt-metrics .val { font-weight: 500; text-align: right; font-family: var(--font-mono); color: var(--text2); }
+    .ttt-metrics .val.hot  { color: var(--warn); }
+    .ttt-metrics .val.weak { color: var(--warn); }
+    .ttt-divider { border: none; border-top: 1px solid var(--border); margin: 9px 0; }
+    .ttt-anom-hdr { font-size: 11px; font-weight: 600; color: var(--warn); margin-bottom: 5px; }
+    .ttt-anom-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; font-size: 12px; }
+    .ttt-anom-grid .lbl { color: var(--muted); }
+    .ttt-anom-grid .val { text-align: right; font-family: var(--font-mono); color: var(--text2); }
+    .ttt-hint { margin-top: 9px; font-size: 11px; color: var(--muted); font-style: italic; }
+
+    /* ══════════════════════════════════════════════════════
+       VIEW PANELS (list + alerts — toggled by nav rail)
+    ══════════════════════════════════════════════════════ */
+    .view-panel {
+      flex: 1; min-height: 0;
+      display: none; flex-direction: column;
+      overflow: hidden;
+    }
+    .view-panel.active { display: flex; }
+
+    /* Tower list table */
+    .list-view {
+      flex: 1; overflow-y: auto;
+    }
+    .list-table {
+      width: 100%; border-collapse: collapse;
+    }
+    .list-table thead th {
+      position: sticky; top: 0; z-index: 1;
+      background: var(--surface2);
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: .07em;
+      padding: 9px 14px; text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .list-table thead th:not(:first-child) { text-align: right; }
+    .list-table tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background .12s;
+    }
+    .list-table tbody tr:hover { background: var(--surface2); }
+    .list-table tbody tr.anomaly { background: rgba(250,77,86,.05); }
+    .list-table tbody td {
+      padding: 9px 14px; font-size: 13px; color: var(--text2);
+    }
+    .list-table tbody td:not(:first-child) { text-align: right; }
+    .list-table .td-id {
+      font-family: var(--font-mono); font-weight: 600; color: var(--text); font-size: 13px;
+    }
+    .list-table .td-name { font-size: 12px; color: var(--muted); }
+    .list-table .td-mono {
+      font-family: var(--font-mono); font-size: 13px;
+    }
+    .list-table .td-mono.hot  { color: var(--warn); }
+    .list-table .td-mono.weak { color: var(--warn); }
+    .list-badge {
+      display: inline-block;
+      font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 3px;
+      font-family: var(--font-mono); letter-spacing: .04em;
+    }
+    .list-badge.ok  { background: var(--ok-bg);   color: var(--ok);   border: 1px solid rgba(66,190,101,.3); }
+    .list-badge.bad { background: var(--warn-bg);  color: var(--warn); border: 1px solid rgba(250,77,86,.3);  }
+
+    /* Alerts list */
+    .alerts-list {
+      flex: 1; overflow-y: auto;
+      padding: 12px 16px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .alerts-empty {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      font-size: 13px; color: var(--muted); font-style: italic;
+    }
+    .alert-row {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--warn);
+      border-radius: var(--radius);
+      padding: 11px 14px;
+      animation: slideIn .2s ease;
+    }
+    .alert-row-icon {
+      width: 32px; height: 32px; border-radius: var(--radius);
+      background: var(--warn-bg); border: 1px solid rgba(250,77,86,.3);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .alert-row-body { min-width: 0; }
+    .alert-row-title { font-size: 13px; font-weight: 600; color: var(--text); font-family: var(--font-mono); }
+    .alert-row-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .alert-row-time  { font-size: 11px; color: var(--muted); font-family: var(--font-mono); white-space: nowrap; }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════ TOPBAR ════════════════════════ -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <svg width="20" height="20" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M11 2L4 8v12h5v-6h4v6h5V8L11 2z" fill="none" stroke="#4589ff" stroke-width="1.6" stroke-linejoin="round"/>
+      <circle cx="11" cy="10" r="1.5" fill="#4589ff"/>
+      <path d="M7.5 5.5 Q11 3 14.5 5.5" stroke="#4589ff" stroke-width="1" fill="none" stroke-linecap="round" opacity=".7"/>
+      <path d="M5 3.5 Q11 0 17 3.5" stroke="#4589ff" stroke-width="1" fill="none" stroke-linecap="round" opacity=".35"/>
+    </svg>
+    <span>5G Network Ops</span>
+  </div>
+  <div class="topbar-divider"></div>
+  <div class="topbar-breadcrumb">
+    <span>Infrastructure</span>
+    <span class="sep">/</span>
+    <span>Cell Towers</span>
+    <span class="sep">/</span>
+    <span class="current">Madrid Region</span>
+  </div>
+  <div class="topbar-right">
+    <div class="live-pill">
+      <div class="live-dot" id="live-dot"></div>
+      <span id="live-text">Connecting…</span>
+    </div>
+    <div class="topbar-time" id="topbar-clock"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════ SHELL ═════════════════════════ -->
+<div class="shell">
+
+  <!-- Left nav rail -->
+  <nav class="nav-rail">
+    <!-- Map view (active) -->
+    <button class="nav-btn active" data-view="map" title="Map View">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+        <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
+      </svg>
+    </button>
+    <!-- Towers list -->
+    <button class="nav-btn" data-view="list" title="Tower List">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="3" width="20" height="4" rx="1"/><rect x="2" y="10" width="20" height="4" rx="1"/><rect x="2" y="17" width="20" height="4" rx="1"/>
+      </svg>
+    </button>
+    <!-- Alerts -->
+    <button class="nav-btn" data-view="alerts" title="Alerts">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+    </button>
+    <div class="nav-rail-spacer"></div>
+    <!-- Settings -->
+    <button class="nav-btn" title="Settings">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+      </svg>
+    </button>
+  </nav>
+
+  <!-- Main content -->
+  <div class="content">
+
+    <!-- KPI row -->
+    <div class="kpi-row">
+
+      <div class="kpi-tile">
+        <div class="kpi-icon-wrap blue">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4589ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="2" width="9" height="9" rx="1"/><rect x="13" y="2" width="9" height="9" rx="1"/>
+            <rect x="2" y="13" width="9" height="9" rx="1"/><rect x="13" y="13" width="9" height="9" rx="1"/>
+          </svg>
+        </div>
+        <div class="kpi-text">
+          <div class="kpi-num blue" id="kpi-total">16</div>
+          <div class="kpi-lbl">Total Towers</div>
+        </div>
+      </div>
+
+      <div class="kpi-tile">
+        <div class="kpi-icon-wrap green">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#42be65" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        </div>
+        <div class="kpi-text">
+          <div class="kpi-num green" id="kpi-ok">16</div>
+          <div class="kpi-lbl">Towers Online</div>
+        </div>
+      </div>
+
+      <div class="kpi-tile">
+        <div class="kpi-icon-wrap red">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fa4d56" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        </div>
+        <div class="kpi-text">
+          <div class="kpi-num red" id="kpi-issues">0</div>
+          <div class="kpi-lbl">Active Incidents</div>
+        </div>
+      </div>
+
+      <div class="kpi-tile">
+        <div class="kpi-icon-wrap amber">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f1c21b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </div>
+        <div class="kpi-text">
+          <div class="kpi-num amber" id="kpi-anomalies">0</div>
+          <div class="kpi-lbl">Total Anomalies</div>
+        </div>
+      </div>
+
+      <div class="kpi-tile">
+        <div class="kpi-icon-wrap purple">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a56eff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        </div>
+        <div class="kpi-text">
+          <div class="kpi-num purple" id="kpi-msgs">0</div>
+          <div class="kpi-lbl">Events / min</div>
+        </div>
+      </div>
+
+    </div><!-- /kpi-row -->
+
+    <!-- VIEW: map (default) -->
+    <div class="view-panel active" id="view-map">
+
+      <!-- Middle: map + tower panel -->
+      <div class="middle">
+
+        <!-- Map -->
+        <div id="map"></div>
+
+        <!-- Right tower panel -->
+        <div class="right-panel">
+          <div class="panel-header">
+            <span class="panel-header-title">Tower Status</span>
+            <span class="panel-header-count" id="panel-count">16 towers</span>
+          </div>
+          <div class="tower-grid" id="tower-grid"></div>
+        </div>
+
+      </div><!-- /middle -->
+
+    </div><!-- /view-map -->
+
+    <!-- VIEW: tower list -->
+    <div class="view-panel" id="view-list">
+      <div class="panel-header">
+        <span class="panel-header-title">All Towers</span>
+        <span class="panel-header-count">16 towers · Madrid Region</span>
+      </div>
+      <div class="list-view">
+        <table class="list-table">
+          <thead>
+            <tr>
+              <th>Tower</th>
+              <th>Status</th>
+              <th>Temperature</th>
+              <th>Signal</th>
+              <th>CPU</th>
+              <th>Last Update</th>
+            </tr>
+          </thead>
+          <tbody id="list-tbody"></tbody>
+        </table>
+      </div>
+    </div><!-- /view-list -->
+
+    <!-- VIEW: alerts -->
+    <div class="view-panel" id="view-alerts">
+      <div class="panel-header">
+        <span class="panel-header-title">Anomaly Alerts</span>
+        <span class="panel-header-count" id="alerts-view-count">0 events</span>
+      </div>
+      <div class="alerts-list" id="alerts-list-view">
+        <div class="alerts-empty" id="alerts-empty">No anomalies detected yet — all towers nominal.</div>
+      </div>
+    </div><!-- /view-alerts -->
+
+    <!-- Bottom anomaly tray -->
+    <div class="bottom-tray">
+      <div class="tray-bar">
+        <span class="tray-bar-title">Anomaly Event Log</span>
+        <span class="tray-badge" id="tray-count">0</span>
+      </div>
+      <div class="tray-empty" id="tray-empty">All towers nominal — no anomalies detected.</div>
+      <div class="tray-scroll" id="tray-scroll" style="display:none"></div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /shell -->
+
+<!-- Hover tooltip -->
+<div id="tower-tooltip"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Socket.io -->
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+// ─── Tower definitions ────────────────────────────────────────────────────────
+const TOWERS = [
+  { id: 'TWR-001', name: 'Retiro',          lat: 40.4153, lon: -3.6844 },
+  { id: 'TWR-002', name: 'Salamanca',       lat: 40.4308, lon: -3.6800 },
+  { id: 'TWR-003', name: 'Chamberí',        lat: 40.4390, lon: -3.7014 },
+  { id: 'TWR-004', name: 'Moncloa',         lat: 40.4356, lon: -3.7194 },
+  { id: 'TWR-005', name: 'Vallecas',        lat: 40.3895, lon: -3.6513 },
+  { id: 'TWR-006', name: 'Tetuán Centro',   lat: 40.4608, lon: -3.7012 },
+  { id: 'TWR-007', name: 'Tetuán Norte',    lat: 40.4671, lon: -3.6981 },
+  { id: 'TWR-008', name: 'Cuatro Caminos',  lat: 40.4498, lon: -3.7034 },
+  { id: 'TWR-009', name: 'Hortaleza',       lat: 40.4763, lon: -3.6421 },
+  { id: 'TWR-010', name: 'Carabanchel',     lat: 40.3863, lon: -3.7363 },
+  { id: 'TWR-011', name: 'Arganzuela',      lat: 40.3990, lon: -3.6974 },
+  { id: 'TWR-012', name: 'Usera',           lat: 40.3878, lon: -3.7112 },
+  { id: 'TWR-013', name: 'Villaverde',      lat: 40.3494, lon: -3.7054 },
+  { id: 'TWR-014', name: 'Moratalaz',       lat: 40.4050, lon: -3.6412 },
+  { id: 'TWR-015', name: 'Barajas',         lat: 40.4786, lon: -3.5830 },
+  { id: 'TWR-016', name: 'La Latina',       lat: 40.4124, lon: -3.7118 },
+];
+
+// ─── Clock ───────────────────────────────────────────────────────────────────
+const clockEl = document.getElementById('topbar-clock');
+function tickClock() {
+  clockEl.textContent = new Date().toLocaleTimeString([], { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+// ─── Map ─────────────────────────────────────────────────────────────────────
+const map = L.map('map', { zoomControl: true }).setView([40.4280, -3.6900], 13);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>',
+  maxZoom: 19,
+}).addTo(map);
+
+// ─── Marker icons ─────────────────────────────────────────────────────────────
+function makeIcon(fill) {
+  const id = 'f' + fill.replace('#','');
+  return L.divIcon({
+    className: '',
+    html: `<svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="${id}" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="2.5" result="b"/>
+          <feFlood flood-color="${fill}" flood-opacity=".5" result="c"/>
+          <feComposite in="c" in2="b" operator="in" result="s"/>
+          <feMerge><feMergeNode in="s"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <path filter="url(#${id})"
+        d="M14 0C6.268 0 0 6.268 0 14c0 9.333 14 22 14 22S28 23.333 28 14C28 6.268 21.732 0 14 0z"
+        fill="${fill}" stroke="rgba(255,255,255,.3)" stroke-width="1.5"/>
+      <circle cx="14" cy="14" r="5" fill="rgba(255,255,255,.9)"/>
+      <circle cx="14" cy="14" r="2.5" fill="${fill}"/>
+    </svg>`,
+    iconSize: [28,36], iconAnchor: [14,36], popupAnchor: [0,-38],
+  });
+}
+const ICON_OK   = makeIcon('#42be65');
+const ICON_WARN = makeIcon('#fa4d56');
+
+// ─── State ───────────────────────────────────────────────────────────────────
+const towerState = {};
+TOWERS.forEach(t => {
+  towerState[t.id] = { anomaly:false, temp:null, signal:null, cpu:null, ts:null, lastAnomaly:null };
+});
+
+let totalAnomalies = 0;
+let msgInWindow    = 0;
+const msgBuckets   = new Array(60).fill(0);
+let bucketIdx      = 0;
+
+setInterval(() => {
+  bucketIdx = (bucketIdx + 1) % 60;
+  msgBuckets[bucketIdx] = msgInWindow;
+  msgInWindow = 0;
+  document.getElementById('kpi-msgs').textContent = msgBuckets.reduce((a,b)=>a+b,0);
+}, 1000);
+
+function updateKPIs() {
+  const issues = TOWERS.filter(t => towerState[t.id].anomaly).length;
+  document.getElementById('kpi-ok').textContent     = TOWERS.length - issues;
+  document.getElementById('kpi-issues').textContent = issues;
+  document.getElementById('kpi-anomalies').textContent = totalAnomalies;
+}
+
+// ─── Tooltip ─────────────────────────────────────────────────────────────────
+const tooltip = document.getElementById('tower-tooltip');
+let tooltipTarget = null;
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmt(v, u, d=1) { return v!==null && v!==undefined ? `${Number(v).toFixed(d)} ${u}` : '—'; }
+
+function showTooltip(id) {
+  const t = TOWERS.find(x => x.id === id);
+  const s = towerState[id];
+  if (!t || !s) return;
+  tooltipTarget = id;
+
+  const hot  = s.temp   !== null && s.temp   > 85;
+  const weak = s.signal !== null && s.signal < -90;
+
+  let anom = '';
+  if (s.lastAnomaly) {
+    const a   = s.lastAnomaly;
+    const end = a.window_end ? new Date(a.window_end).toLocaleTimeString() : '—';
+    anom = `<hr class="ttt-divider"/>
+      <div class="ttt-anom-hdr">⚠ Last Anomaly Window</div>
+      <div class="ttt-anom-grid">
+        <span class="lbl">Avg Temp</span><span class="val">${fmt(a.avg_temperature,'°C')}</span>
+        <span class="lbl">Avg Signal</span><span class="val">${fmt(a.avg_signal,'dBm')}</span>
+        <span class="lbl">Events</span><span class="val">${a.event_count??'—'}</span>
+        <span class="lbl">Closed</span><span class="val">${end}</span>
+      </div>`;
+  }
+
+  tooltip.className = s.anomaly ? 'anomaly' : '';
+  tooltip.innerHTML = `
+    <div class="ttt-hdr">
+      <div><div class="ttt-id">${esc(t.id)}</div><div class="ttt-loc">${esc(t.name)}</div></div>
+      <span class="ttt-pill ${s.anomaly?'bad':'ok'}">${s.anomaly?'⚠ ALERT':'● OK'}</span>
+    </div>
+    <div class="ttt-metrics">
+      <span class="lbl">Temperature</span><span class="val${hot?' hot':''}">${fmt(s.temp,'°C')}</span>
+      <span class="lbl">Signal</span><span class="val${weak?' weak':''}">${fmt(s.signal,'dBm')}</span>
+      <span class="lbl">CPU Load</span><span class="val">${fmt(s.cpu,'%')}</span>
+      <span class="lbl">Updated</span><span class="val" style="color:var(--muted)">${s.ts??'—'}</span>
+    </div>${anom}
+    <div class="ttt-hint">Lat ${t.lat.toFixed(4)}, Lon ${t.lon.toFixed(4)}</div>`;
+  tooltip.style.display = 'block';
+}
+function hideTooltip() { tooltipTarget=null; tooltip.style.display='none'; }
+
+document.addEventListener('mousemove', e => {
+  if (tooltip.style.display==='none') return;
+  const OFF=16, tw=tooltip.offsetWidth||230, th=tooltip.offsetHeight||180;
+  let x=e.clientX+OFF, y=e.clientY+OFF;
+  if (x+tw>window.innerWidth -8) x=e.clientX-tw-OFF;
+  if (y+th>window.innerHeight-8) y=e.clientY-th-OFF;
+  tooltip.style.left=x+'px'; tooltip.style.top=y+'px';
+});
+
+// ─── Nav view switching ───────────────────────────────────────────────────────
+const navBtns    = document.querySelectorAll('.nav-btn[data-view]');
+const viewPanels = document.querySelectorAll('.view-panel');
+
+navBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.view;
+    navBtns.forEach(b => b.classList.toggle('active', b === btn));
+    viewPanels.forEach(p => p.classList.toggle('active', p.id === `view-${target}`));
+    if (target === 'map') setTimeout(() => map.invalidateSize(), 50);
+  });
+});
+
+// ─── Build markers + tower grid cards ────────────────────────────────────────
+const markers   = {};
+const labelDivs = {};
+const gridEl    = document.getElementById('tower-grid');
+const tbodyEl   = document.getElementById('list-tbody');
+
+TOWERS.forEach(t => {
+  // Map marker
+  const marker = L.marker([t.lat, t.lon], { icon: ICON_OK }).addTo(map);
+  marker.on('mouseover', () => showTooltip(t.id));
+  marker.on('mouseout',  hideTooltip);
+  markers[t.id] = marker;
+
+  // Map label
+  const lbl = L.divIcon({
+    className: 'tower-label',
+    html: `${t.id}<br><span style="opacity:.6">${t.name}</span>`,
+    iconAnchor: [-12, 16],
+  });
+  labelDivs[t.id] = L.marker([t.lat, t.lon], { icon: lbl, interactive: false }).addTo(map);
+
+  // Map-view tile
+  const tile = document.createElement('div');
+  tile.className = 'tower-tile';
+  tile.id = `tile-${t.id}`;
+  tile.innerHTML = `
+    <div class="tt-row1">
+      <div>
+        <div class="tt-id">${t.id}</div>
+        <div class="tt-name">${t.name}</div>
+      </div>
+      <span class="tt-badge ok" id="badge-${t.id}">OK</span>
+    </div>
+    <div class="tt-metrics">
+      <span class="tm-label">Temp</span>   <span class="tm-val" id="temp-${t.id}">—</span>
+      <span class="tm-label">Signal</span> <span class="tm-val" id="signal-${t.id}">—</span>
+      <span class="tm-label">CPU</span>    <span class="tm-val" id="cpu-${t.id}">—</span>
+      <span class="tm-label">Updated</span><span class="tm-val" id="ts-${t.id}" style="color:var(--muted)">—</span>
+    </div>`;
+  gridEl.appendChild(tile);
+
+  // List-view table row
+  const tr = document.createElement('tr');
+  tr.id = `row-${t.id}`;
+  tr.innerHTML = `
+    <td>
+      <div class="td-id">${t.id}</div>
+      <div class="td-name">${t.name}</div>
+    </td>
+    <td><span class="list-badge ok" id="lbadge-${t.id}">OK</span></td>
+    <td><span class="td-mono" id="ltemp-${t.id}">—</span></td>
+    <td><span class="td-mono" id="lsignal-${t.id}">—</span></td>
+    <td><span class="td-mono" id="lcpu-${t.id}">—</span></td>
+    <td><span style="font-size:12px;color:var(--muted)" id="lts-${t.id}">—</span></td>`;
+  tbodyEl.appendChild(tr);
+});
+
+// ─── Socket.io ───────────────────────────────────────────────────────────────
+const socket   = io();
+const liveText = document.getElementById('live-text');
+const liveDot  = document.getElementById('live-dot');
+
+socket.on('connect', () => {
+  liveDot.className  = 'live-dot';
+  liveText.textContent = 'Connected · Live';
+});
+socket.on('disconnect', () => {
+  liveDot.className  = 'live-dot warn';
+  liveText.textContent = 'Disconnected';
+});
+
+// ─── Telemetry ───────────────────────────────────────────────────────────────
+socket.on('telemetry', d => {
+  const id = d.tower_id;
+  if (!towerState[id]) return;
+  msgInWindow++;
+
+  const tv = typeof d.temperature     === 'number' ? d.temperature     : null;
+  const sv = typeof d.signal_strength === 'number' ? d.signal_strength : null;
+  const cv = typeof d.cpu_load        === 'number' ? d.cpu_load        : null;
+  const ts = d.event_time ? new Date(d.event_time).toLocaleTimeString() : null;
+
+  Object.assign(towerState[id], { temp:tv, signal:sv, cpu:cv, ts });
+
+  // Map-view tile
+  document.getElementById(`temp-${id}`).textContent   = tv!==null ? `${tv.toFixed(1)} °C`  : '—';
+  document.getElementById(`signal-${id}`).textContent = sv!==null ? `${sv.toFixed(1)} dBm` : '—';
+  document.getElementById(`cpu-${id}`).textContent    = cv!==null ? `${cv.toFixed(1)} %`   : '—';
+  document.getElementById(`ts-${id}`).textContent     = ts ?? '—';
+  document.getElementById(`temp-${id}`).className   = 'tm-val' + (tv>85  ? ' hot'  : '');
+  document.getElementById(`signal-${id}`).className = 'tm-val' + (sv<-90 ? ' weak' : '');
+
+  // List-view row
+  document.getElementById(`ltemp-${id}`).textContent   = tv!==null ? `${tv.toFixed(1)} °C`  : '—';
+  document.getElementById(`lsignal-${id}`).textContent = sv!==null ? `${sv.toFixed(1)} dBm` : '—';
+  document.getElementById(`lcpu-${id}`).textContent    = cv!==null ? `${cv.toFixed(1)} %`   : '—';
+  document.getElementById(`lts-${id}`).textContent     = ts ?? '—';
+  document.getElementById(`ltemp-${id}`).className   = 'td-mono' + (tv>85  ? ' hot'  : '');
+  document.getElementById(`lsignal-${id}`).className = 'td-mono' + (sv<-90 ? ' weak' : '');
+
+  if (tooltipTarget===id) showTooltip(id);
+});
+
+// ─── Anomaly ─────────────────────────────────────────────────────────────────
+socket.on('anomaly', d => {
+  const id = d.tower_id;
+  if (!markers[id]) return;
+
+  totalAnomalies++;
+  towerState[id].anomaly     = true;
+  towerState[id].lastAnomaly = {
+    avg_temperature: d.avg_temperature,
+    avg_signal:      d.avg_signal,
+    event_count:     d.event_count,
+    window_end:      d.window_end,
+  };
+
+  // Marker → red
+  markers[id].setIcon(ICON_WARN);
+
+  // Map label → red
+  const tower = TOWERS.find(t => t.id === id);
+  if (tower) {
+    labelDivs[id].setIcon(L.divIcon({
+      className: 'tower-label anomaly',
+      html: `⚠ ${id}<br>${tower.name}`,
+      iconAnchor: [-12, 16],
+    }));
+  }
+
+  // Map-view tile
+  const tile  = document.getElementById(`tile-${id}`);
+  const badge = document.getElementById(`badge-${id}`);
+  if (tile)  tile.classList.add('anomaly');
+  if (badge) { badge.textContent='⚠ ALERT'; badge.className='tt-badge bad'; }
+
+  // List-view row
+  const row    = document.getElementById(`row-${id}`);
+  const lbadge = document.getElementById(`lbadge-${id}`);
+  if (row)    row.classList.add('anomaly');
+  if (lbadge) { lbadge.textContent='⚠ ALERT'; lbadge.className='list-badge bad'; }
+
+  // Timestamp (used by both alerts view and bottom tray below)
+  const ts = d.window_end ? new Date(d.window_end).toLocaleTimeString() : new Date().toLocaleTimeString();
+
+  // Alerts view entry
+  const alertsListEl = document.getElementById('alerts-list-view');
+  const alertsEmpty  = document.getElementById('alerts-empty');
+  const alertsCount  = document.getElementById('alerts-view-count');
+  if (alertsEmpty) alertsEmpty.remove();
+  alertsCount.textContent = `${totalAnomalies} event${totalAnomalies!==1?'s':''}`;
+  const arow = document.createElement('div');
+  arow.className = 'alert-row';
+  arow.innerHTML = `
+    <div class="alert-row-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fa4d56" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </div>
+    <div class="alert-row-body">
+      <div class="alert-row-title">${esc(id)} — ${tower ? esc(tower.name) : ''}</div>
+      <div class="alert-row-sub">
+        Avg temp ${typeof d.avg_temperature==='number' ? d.avg_temperature.toFixed(1)+' °C' : '—'} ·
+        signal ${typeof d.avg_signal==='number' ? d.avg_signal.toFixed(1)+' dBm' : '—'} ·
+        ${d.event_count??'—'} events in window
+      </div>
+    </div>
+    <div class="alert-row-time">${ts}</div>`;
+  alertsListEl.prepend(arow);
+
+  // KPIs
+  updateKPIs();
+
+  // Bottom tray
+  const trayScroll = document.getElementById('tray-scroll');
+  const trayEmpty  = document.getElementById('tray-empty');
+  const trayCount  = document.getElementById('tray-count');
+  trayEmpty.style.display  = 'none';
+  trayScroll.style.display = 'flex';
+  trayCount.textContent    = totalAnomalies;
+
+  const card = document.createElement('div');
+  card.className = 'ev-card';
+  card.innerHTML = `
+    <div class="ev-row1">
+      <span class="ev-tower">${esc(id)}</span>
+      <span class="ev-time">${ts}</span>
+    </div>
+    <div class="ev-grid">
+      <span class="lbl">Location</span>  <span class="val">${tower ? esc(tower.name) : '—'}</span>
+      <span class="lbl">Avg Temp</span>  <span class="val">${typeof d.avg_temperature==='number' ? d.avg_temperature.toFixed(1)+' °C' : '—'}</span>
+      <span class="lbl">Avg Signal</span><span class="val">${typeof d.avg_signal==='number' ? d.avg_signal.toFixed(1)+' dBm' : '—'}</span>
+    </div>
+    <div class="ev-footer"><b>${d.event_count??'—'}</b> events in window</div>`;
+  trayScroll.prepend(card);
+
+  if (tooltipTarget===id) showTooltip(id);
+
+  // Auto-reset after 90 s
+  setTimeout(() => {
+    towerState[id].anomaly = false;
+    markers[id].setIcon(ICON_OK);
+    if (tile)  tile.classList.remove('anomaly');
+    if (badge) { badge.textContent='OK'; badge.className='tt-badge ok'; }
+    if (row)    row.classList.remove('anomaly');
+    if (lbadge) { lbadge.textContent='OK'; lbadge.className='list-badge ok'; }
+    if (tower) {
+      labelDivs[id].setIcon(L.divIcon({
+        className: 'tower-label',
+        html: `${id}<br><span style="opacity:.6">${tower.name}</span>`,
+        iconAnchor: [-12, 16],
+      }));
+    }
+    updateKPIs();
+    if (tooltipTarget===id) showTooltip(id);
+  }, 90_000);
+});
+</script>
+</body>
+</html>

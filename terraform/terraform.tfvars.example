@@ -1,0 +1,14 @@
+# Copy this file to terraform.tfvars and fill in your real credentials.
+# terraform.tfvars is gitignored — never commit it.
+
+confluent_cloud_api_key    = "REPLACE_WITH_YOUR_CLOUD_API_KEY"
+confluent_cloud_api_secret = "REPLACE_WITH_YOUR_CLOUD_API_SECRET"
+
+# Optional overrides (defaults are set in variables.tf)
+# environment_name = "celltower-env-dev"
+# cluster_name     = "celltower-kafka-dev"
+# cloud_provider   = "AWS"
+# region           = "eu-central-1"    # Kafka cluster region (Frankfurt — supports Flink)
+# flink_region     = "eu-central-1"    # Flink region — must match a Confluent Flink-supported region
+# flink_max_cfu    = 5
+# env_suffix       = "dev"
