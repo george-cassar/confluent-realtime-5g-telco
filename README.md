@@ -1,6 +1,6 @@
 # 5G Cell Tower Anomaly Detection Demo
 
-A real-time 5G cell tower telemetry monitoring demo set in **Madrid, Spain**. Mock telemetry is streamed into Confluent Cloud (Apache Kafka) encoded as **Avro** against a Schema Registry, aggregated by an Apache Flink SQL tumbling-window job to detect network anomalies, and surfaced live in a Node.js web dashboard. An AI agent powered by the Confluent MCP server can be wired into the dashboard for natural-language queries over the stream.
+A real-time 5G cell tower telemetry monitoring demo set in **Madrid, Spain**. Mock telemetry is streamed into Confluent Cloud (Apache Kafka) encoded as **Avro** against a Schema Registry, aggregated by an Apache Flink SQL tumbling-window job to detect network anomalies, and surfaced live in a Node.js web dashboard.
 
 ```
 ┌──────────────┐  KafkaJS/SASL+Avro  ┌─────────────────────────┐
@@ -17,7 +17,6 @@ A real-time 5G cell tower telemetry monitoring demo set in **Madrid, Spain**. Mo
                                      │  Express + Socket.io    │  server/
                                      │  ┌───────────────────┐  │
                                      │  │  Leaflet.js map   │  │  server/public/
-                                     │  │  AI Chat (MCP)    │  │
                                      │  └───────────────────┘  │
                                      └─────────────────────────┘
 ```
@@ -29,7 +28,7 @@ https://github.com/user-attachments/assets/213c0617-9080-4649-a50a-9fdb31014987
 
 > **▶ Click to play** — or [download the recording](video/5G_Network_Ops_Realtime_AI_CFLT_20260813_NS.mov) directly.
 
-The recording shows the full end-to-end demo: the mock generator emitting Avro-encoded telemetry for 16 Madrid towers, the Flink SQL 60-second tumbling window surfacing anomaly alerts, tower markers flipping red on the Leaflet map, the live stats sidebar updating in real time, and the AI chat panel querying the stream via the Confluent MCP server.
+The recording shows the full end-to-end demo: the mock generator emitting Avro-encoded telemetry for 16 Madrid towers, the Flink SQL 60-second tumbling window surfacing anomaly alerts, tower markers flipping red on the Leaflet map, and the live stats sidebar updating in real time.
 
 ---
 
@@ -58,8 +57,7 @@ The recording shows the full end-to-end demo: the mock generator emitting Avro-e
 11. [Flink SQL Statement](#flink-sql-statement)
 12. [Telemetry Message Schema](#telemetry-message-schema)
 13. [Anomaly Alert Message Schema](#anomaly-alert-message-schema)
-14. [MCP Integration](#mcp-integration)
-15. [Environment Variables Reference](#environment-variables-reference)
+14. [Environment Variables Reference](#environment-variables-reference)
 16. [Terraform Outputs Reference](#terraform-outputs-reference)
 17. [Security](#security)
 18. [Teardown](#teardown)
@@ -83,8 +81,7 @@ The recording shows the full end-to-end demo: the mock generator emitting Avro-e
 | FR-08 | Tower markers shall turn **red** when an anomaly alert is received for that tower and automatically revert to green after 90 seconds if no further alert is received. |
 | FR-09 | The dashboard shall display a **live stats sidebar** showing current temperature, signal strength, CPU load, and last-updated time per tower, updated in real time via Socket.io. |
 | FR-10 | The dashboard shall maintain a scrollable **anomaly alerts log** listing each detected anomaly with window statistics and timestamp. |
-| FR-11 | The dashboard shall expose an **AI chat panel** backed by `server/mcp.js`, which routes natural-language prompts to `@confluentinc/mcp-confluent` via stdio JSON-RPC 2.0. A `POST /api/chat` endpoint in `server/server.js` is required to wire the panel to the MCP client (not yet implemented — see [MCP Integration](#mcp-integration)). |
-| FR-12 | All Confluent Cloud infrastructure — including Kafka topics, Schema Registry schemas, Flink compute pool, service accounts, role bindings, API keys, and the Flink SQL statement — shall be provisioned and destroyed via **Terraform** without manual UI interaction. |
+| FR-11 | All Confluent Cloud infrastructure — including Kafka topics, Schema Registry schemas, Flink compute pool, service accounts, role bindings, API keys, and the Flink SQL statement — shall be provisioned and destroyed via **Terraform** without manual UI interaction. |
 
 ### Non-Functional Requirements
 
@@ -116,7 +113,6 @@ The recording shows the full end-to-end demo: the mock generator emitting Avro-e
 | Mock Producer | [Node.js](https://nodejs.org/) + [KafkaJS](https://kafka.js.org/) `^2.2` |
 | Backend | [Express](https://expressjs.com/) `^4.19` + [Socket.io](https://socket.io/) `^4.7` + KafkaJS |
 | Frontend | HTML/CSS/JS + [Leaflet.js](https://leafletjs.com/) `1.9.4` + [CartoDB Dark Matter](https://carto.com/basemaps) tiles |
-| AI Integration | [`@confluentinc/mcp-confluent`](https://www.npmjs.com/package/@confluentinc/mcp-confluent) via stdio JSON-RPC 2.0 (see [`server/mcp.js`](server/mcp.js)) |
 
 ---
 
@@ -137,7 +133,6 @@ confluent-realtime-demo/
 │   ├── infra-provision.sh        # Provision Confluent Cloud via Terraform
 │   ├── infra-destroy.sh          # Tear down all Confluent Cloud resources
 │   ├── infra-reset.sh            # Hard reset — wipes orphaned cloud resources + local state
-│   ├── generate-mcp-config.sh    # Generate .bob/mcp.json + server/mcp-config/config.yaml from Terraform outputs
 │   ├── generator-start.sh        # Start the mock telemetry producer
 │   ├── generator-stop.sh         # Stop the mock telemetry producer
 │   ├── dashboard-start.sh        # Start the web dashboard server
@@ -165,12 +160,9 @@ confluent-realtime-demo/
 └── server/
     ├── package.json              # express + socket.io + kafkajs + @confluentinc/schemaregistry + dotenv
     ├── server.js                 # Express + Socket.io server + two Kafka consumers
-    ├── mcp.js                    # MCP stdio child-process client (queryMcp helper)
-    ├── mcp-config/
-    │   └── config.yaml           # @confluentinc/mcp-confluent connection config (generated by generate-mcp-config.sh)
     ├── .env.example              # Template — copy to .env
     └── public/
-        └── index.html            # Leaflet map + live stats + alerts log + AI chat panel
+        └── index.html            # Leaflet map + live stats + alerts log
 ```
 
 ---
@@ -196,12 +188,10 @@ flowchart TD
 
     subgraph Server ["server/ — Express + Socket.io"]
         SV["server.js\nTwo KafkaJS consumers\nAvro decode via SR"]
-        MCP["mcp.js\n@confluentinc/mcp-confluent\nstdio JSON-RPC 2.0"]
     end
 
     subgraph Browser ["Browser"]
         MAP["Leaflet.js Map\nMadrid — 16 tower markers"]
-        CHAT["AI Chat Panel\nPOST /api/chat"]
     end
 
     G -- "register/encode schema" --> S1
@@ -212,8 +202,6 @@ flowchart TD
     T2 -- "socket event: anomaly" --> SV
     SV -- "decode via SR" --> S2
     SV -- "Socket.io" --> MAP
-    CHAT -- "HTTP POST" --> SV
-    SV --> MCP
 ```
 
 ---
@@ -240,7 +228,6 @@ All automation scripts live in [`scripts/`](scripts/). Every script sources [`sc
 | [`scripts/infra-provision.sh`](scripts/infra-provision.sh) | Guided Terraform wizard — asks for credentials, cloud/region, and resource names, then provisions everything in Confluent Cloud and writes `.env` files | ✅ |
 | [`scripts/infra-destroy.sh`](scripts/infra-destroy.sh) | Tears down all Confluent Cloud resources. Shows a `terraform plan -destroy` preview and requires typing `DELETE` to confirm | ✅ |
 | [`scripts/infra-reset.sh`](scripts/infra-reset.sh) | **Hard reset** — use when Terraform state is out of sync with Confluent Cloud. Deletes the live environment via REST API, purges orphaned service accounts, and wipes all local state and credential files. Run before re-provisioning from scratch | ✅ |
-| [`scripts/generate-mcp-config.sh`](scripts/generate-mcp-config.sh) | Reads Terraform outputs and writes `.bob/mcp.json` (IBM Bob MCP integration) and `server/mcp-config/config.yaml` (`@confluentinc/mcp-confluent` connection config). Requires `jq` and an up-to-date Terraform state | ❌ |
 | [`scripts/generator-start.sh`](scripts/generator-start.sh) | Validates `generator/.env`, checks for a running instance, installs npm packages if needed, launches the producer in the background, and tails the log | ✅ |
 | [`scripts/generator-stop.sh`](scripts/generator-stop.sh) | Gracefully stops the running generator (SIGTERM → SIGKILL fallback) | ❌ |
 | [`scripts/dashboard-start.sh`](scripts/dashboard-start.sh) | Validates `server/.env`, optionally changes the HTTP port, launches the dashboard in the background, and opens the browser | ✅ |
