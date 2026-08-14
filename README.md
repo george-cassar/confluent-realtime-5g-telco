@@ -25,11 +25,9 @@ A real-time 5G cell tower telemetry monitoring demo set in **Madrid, Spain**. Mo
 ---
 
 ## Demo Preview
-> **▶ Click to play** — or [download the recording](video/5G_Network_Ops_Realtime_AI_CFLT_20260813_NS.mov) directly.
+https://github.com/user-attachments/assets/213c0617-9080-4649-a50a-9fdb31014987
 
-<video src="video/5G_Network_Ops_Realtime_AI_CFLT_20260813_NS.mov" controls width="100%">
-  <a href="video/5G_Network_Ops_Realtime_AI_CFLT_20260813_NS.mov">Download demo video</a>
-</video>
+> **▶ Click to play** — or [download the recording](video/5G_Network_Ops_Realtime_AI_CFLT_20260813_NS.mov) directly.
 
 The recording shows the full end-to-end demo: the mock generator emitting Avro-encoded telemetry for 16 Madrid towers, the Flink SQL 60-second tumbling window surfacing anomaly alerts, tower markers flipping red on the Leaflet map, the live stats sidebar updating in real time, and the AI chat panel querying the stream via the Confluent MCP server.
 
