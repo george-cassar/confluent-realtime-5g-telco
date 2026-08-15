@@ -3,7 +3,7 @@
 This file provides guidance to agents when working with code in this repository.
 
 ## Project Overview
-Real-time 5G cell tower telemetry monitoring demo. Streams mock telemetry into Confluent Cloud (Kafka), aggregates anomalies via Apache Flink SQL, and surfaces them in a Node.js web dashboard with AI-agent integration via MCP.
+Real-time 5G cell tower telemetry monitoring demo. Streams mock telemetry into Confluent Cloud (Kafka), aggregates anomalies via Apache Flink SQL, and surfaces them in a Node.js web dashboard.
 
 ## Technology Stack
 - **Infrastructure:** Terraform (Confluent Cloud Provider)

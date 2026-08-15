@@ -57,7 +57,8 @@ The recording shows the full end-to-end demo: the mock generator emitting Avro-e
 11. [Flink SQL Statement](#flink-sql-statement)
 12. [Telemetry Message Schema](#telemetry-message-schema)
 13. [Anomaly Alert Message Schema](#anomaly-alert-message-schema)
-14. [Environment Variables Reference](#environment-variables-reference)
+14. [MCP Integration](#mcp-integration)
+15. [Environment Variables Reference](#environment-variables-reference)
 16. [Terraform Outputs Reference](#terraform-outputs-reference)
 17. [Security](#security)
 18. [Teardown](#teardown)
@@ -92,12 +93,11 @@ The recording shows the full end-to-end demo: the mock generator emitting Avro-e
 | NFR-03 | **Security** | A separate Terraform-only `EnvironmentAdmin` service account is used exclusively for infrastructure provisioning. Its API key is never embedded in application `.env` files. |
 | NFR-04 | **Latency** | Telemetry events shall appear in the dashboard within **5 seconds** of being produced under normal network conditions. |
 | NFR-05 | **Reliability** | Both Node.js processes (generator and server) handle `SIGINT` / `SIGTERM` with graceful shutdown, cleanly disconnecting all Kafka clients before exiting. |
-| NFR-06 | **Reliability** | The MCP child process auto-respawns on unexpected exit; in-flight requests are rejected with a descriptive error so the HTTP response is never silently dropped. |
-| NFR-07 | **Maintainability** | The Flink SQL statement is stored as a plain `.sql` file in `flink/` and applied via Terraform — it is never executed ad-hoc. Changing the window size requires updating the `INTERVAL` in `flink/anomaly_detection.sql` **and** the anomaly thresholds in `generator/producer.js`. |
-| NFR-08 | **Observability** | The generator prints a colour-coded ANSI table to stdout every 2 seconds listing all 16 towers with their current temperature, signal strength, CPU load, and anomaly status. Anomalous rows are highlighted in red. The server logs each received anomaly alert and Socket.io connection lifecycle events. |
-| NFR-09 | **Portability** | The `cloud_provider` and `region` Terraform variables default to `AWS / eu-central-1` (Frankfurt). Both can be overridden in `terraform.tfvars` without code changes. |
-| NFR-10 | **Scalability** | Both Kafka topics are created with **3 partitions**. The Flink compute pool is capped at `max_cfu = 5`, sufficient for the demo workload and adjustable via the `flink_max_cfu` variable. |
-| NFR-11 | **Consistency** | Topic naming follows lowercase kebab-case (`cell-tower-telemetry`, `anomaly-alerts`). Terraform resource naming follows `<project>-<component>-<env>` (e.g., `celltower-producer-sa-dev`). Schema subjects follow the TopicNameStrategy (`<topic>-value`). |
+| NFR-06 | **Maintainability** | The Flink SQL statement is stored as a plain `.sql` file in `flink/` and applied via Terraform — it is never executed ad-hoc. Changing the window size requires updating the `INTERVAL` in `flink/anomaly_detection.sql` **and** the anomaly thresholds in `generator/producer.js`. |
+| NFR-07 | **Observability** | The generator prints a colour-coded ANSI table to stdout every 2 seconds listing all 16 towers with their current temperature, signal strength, CPU load, and anomaly status. Anomalous rows are highlighted in red. The server logs each received anomaly alert and Socket.io connection lifecycle events. |
+| NFR-08 | **Portability** | The `cloud_provider` and `region` Terraform variables default to `AWS / eu-central-1` (Frankfurt). Both can be overridden in `terraform.tfvars` without code changes. |
+| NFR-09 | **Scalability** | Both Kafka topics are created with **3 partitions**. The Flink compute pool is capped at `max_cfu = 5`, sufficient for the demo workload and adjustable via the `flink_max_cfu` variable. |
+| NFR-10 | **Consistency** | Topic naming follows lowercase kebab-case (`cell-tower-telemetry`, `anomaly-alerts`). Terraform resource naming follows `<project>-<component>-<env>` (e.g., `celltower-producer-sa-dev`). Schema subjects follow the TopicNameStrategy (`<topic>-value`). |
 
 ---
 
@@ -113,13 +113,14 @@ The recording shows the full end-to-end demo: the mock generator emitting Avro-e
 | Mock Producer | [Node.js](https://nodejs.org/) + [KafkaJS](https://kafka.js.org/) `^2.2` |
 | Backend | [Express](https://expressjs.com/) `^4.19` + [Socket.io](https://socket.io/) `^4.7` + KafkaJS |
 | Frontend | HTML/CSS/JS + [Leaflet.js](https://leafletjs.com/) `1.9.4` + [CartoDB Dark Matter](https://carto.com/basemaps) tiles |
+| AI / MCP | [`@confluentinc/mcp-confluent`](https://www.npmjs.com/package/@confluentinc/mcp-confluent) via stdio child process ([`server/mcp.js`](server/mcp.js)) |
 
 ---
 
 ## Project Structure
 
 ```
-confluent-realtime-demo/
+confluent-realtime-5g-telco/
 ├── .bobignore                    # Ignore rules for secrets and state
 ├── README.md                     # This file
 │
@@ -133,6 +134,7 @@ confluent-realtime-demo/
 │   ├── infra-provision.sh        # Provision Confluent Cloud via Terraform
 │   ├── infra-destroy.sh          # Tear down all Confluent Cloud resources
 │   ├── infra-reset.sh            # Hard reset — wipes orphaned cloud resources + local state
+│   ├── generate-mcp-config.sh    # Generate .bob/mcp.json + server/mcp-config/config.yaml from Terraform outputs
 │   ├── generator-start.sh        # Start the mock telemetry producer
 │   ├── generator-stop.sh         # Stop the mock telemetry producer
 │   ├── dashboard-start.sh        # Start the web dashboard server
@@ -157,12 +159,18 @@ confluent-realtime-demo/
 │   ├── producer.js               # KafkaJS Avro telemetry producer (16 Madrid towers)
 │   └── .env.example              # Template — copy to .env
 │
-└── server/
-    ├── package.json              # express + socket.io + kafkajs + @confluentinc/schemaregistry + dotenv
-    ├── server.js                 # Express + Socket.io server + two Kafka consumers
-    ├── .env.example              # Template — copy to .env
-    └── public/
-        └── index.html            # Leaflet map + live stats + alerts log
+├── server/
+│   ├── package.json              # express + socket.io + kafkajs + @confluentinc/schemaregistry + dotenv
+│   ├── server.js                 # Express + Socket.io server + two Kafka consumers
+│   ├── mcp.js                    # MCP client — spawns @confluentinc/mcp-confluent via stdio
+│   ├── .env.example              # Template — copy to .env
+│   ├── mcp-config/
+│   │   └── config.yaml           # @confluentinc/mcp-confluent connection config (generated by generate-mcp-config.sh)
+│   └── public/
+│       └── index.html            # Leaflet map + live stats + alerts log
+│
+└── video/
+    └── 5G_Network_Ops_Realtime_AI_CFLT_20260813_NS.mov   # Demo recording
 ```
 
 ---
@@ -228,6 +236,7 @@ All automation scripts live in [`scripts/`](scripts/). Every script sources [`sc
 | [`scripts/infra-provision.sh`](scripts/infra-provision.sh) | Guided Terraform wizard — asks for credentials, cloud/region, and resource names, then provisions everything in Confluent Cloud and writes `.env` files | ✅ |
 | [`scripts/infra-destroy.sh`](scripts/infra-destroy.sh) | Tears down all Confluent Cloud resources. Shows a `terraform plan -destroy` preview and requires typing `DELETE` to confirm | ✅ |
 | [`scripts/infra-reset.sh`](scripts/infra-reset.sh) | **Hard reset** — use when Terraform state is out of sync with Confluent Cloud. Deletes the live environment via REST API, purges orphaned service accounts, and wipes all local state and credential files. Run before re-provisioning from scratch | ✅ |
+| [`scripts/generate-mcp-config.sh`](scripts/generate-mcp-config.sh) | Reads Terraform outputs and writes `.bob/mcp.json` (IBM Bob MCP registration) and `server/mcp-config/config.yaml` (connection config for `@confluentinc/mcp-confluent`). Requires `jq` | ❌ |
 | [`scripts/generator-start.sh`](scripts/generator-start.sh) | Validates `generator/.env`, checks for a running instance, installs npm packages if needed, launches the producer in the background, and tails the log | ✅ |
 | [`scripts/generator-stop.sh`](scripts/generator-stop.sh) | Gracefully stops the running generator (SIGTERM → SIGKILL fallback) | ❌ |
 | [`scripts/dashboard-start.sh`](scripts/dashboard-start.sh) | Validates `server/.env`, optionally changes the HTTP port, launches the dashboard in the background, and opens the browser | ✅ |
@@ -466,7 +475,6 @@ Navigate to **[http://localhost:3000](http://localhost:3000)** in a browser.
 | **Tower Status sidebar** | Live temperature, signal strength, CPU load, and last-updated time per tower. Values shown in red when they exceed anomaly thresholds (`temp > 85 °C`, `signal < −90 dBm`). |
 | **Anomaly Alerts log** | Each windowed alert from Flink appears as a card with per-window averages and event count. Newest entries appear at the top. |
 | **Marker colour** | Flips to **red** when an anomaly alert is received. Automatically reverts to green after 90 seconds if no further alert arrives. |
-| **AI Chat panel** | Requires wiring `server/mcp.js` into `server/server.js` — see [MCP Integration](#mcp-integration). |
 
 ---
 
@@ -626,43 +634,22 @@ Avro record `com.celltower.AnomalyAlert`. Published to `anomaly-alerts` by Flink
 
 ## MCP Integration
 
-The project includes a fully-functional MCP client module ([`server/mcp.js`](server/mcp.js)) that spawns `@confluentinc/mcp-confluent` as a stdio child process and exposes a `queryMcp(prompt)` function. The module includes:
-
-- **Prompt routing** — keyword-based dispatch to the appropriate MCP tool (`list-topics`, `list-flink-statements`, `list-schemas`, `search-product-docs`, etc.)
-- **Auto-respawn** — the child process restarts automatically on unexpected exit
-- **Timeout + rejection** — in-flight requests are rejected with a descriptive error if the child exits mid-request
-
-**Current status:** `server/mcp.js` is implemented but is not yet wired into `server/server.js`. To enable the AI chat panel, add a `POST /api/chat` route to `server/server.js`:
-
-```js
-const { queryMcp } = require('./mcp');
-
-app.post('/api/chat', async (req, res) => {
-  try {
-    const text = await queryMcp(req.body.prompt || '');
-    res.json({ reply: text });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-```
-
-**Credential mapping:** `mcp.js` maps `server/.env` variables to the names expected by `@confluentinc/mcp-confluent`:
-
-| `server/.env` variable | MCP env variable |
-|------------------------|-----------------|
-| `SCHEMA_REGISTRY_URL` | `SCHEMA_REGISTRY_ENDPOINT` |
-| `CONSUMER_API_KEY` | `KAFKA_API_KEY` |
-| `CONSUMER_API_SECRET` | `KAFKA_API_SECRET` |
-
 ### IBM Bob MCP integration
 
-[`scripts/generate-mcp-config.sh`](scripts/generate-mcp-config.sh) writes two files from live Terraform outputs:
+[`scripts/generate-mcp-config.sh`](scripts/generate-mcp-config.sh) reads live Terraform outputs and writes two files:
 
 | File | Purpose |
 |------|---------|
-| `.bob/mcp.json` | Registers the `confluent` MCP server in IBM Bob, passing all credentials as environment variables to the `npx @confluentinc/mcp-confluent` process |
-| `server/mcp-config/config.yaml` | Connection config consumed by `@confluentinc/mcp-confluent` — declares Kafka, Schema Registry, Confluent Cloud, and Flink endpoints |
+| [`.bob/mcp.json`](.bob/mcp.json) | Registers the `confluent` MCP server in IBM Bob, passing all credentials as environment variables to the `npx @confluentinc/mcp-confluent` process |
+| [`server/mcp-config/config.yaml`](server/mcp-config/config.yaml) | Connection config consumed by `@confluentinc/mcp-confluent` — declares Kafka, Schema Registry, Confluent Cloud, and Flink endpoints |
+
+The MCP server is pre-authorised for the following tools (no per-call approval needed):
+
+```
+list-topics, list-flink-statements, list-flink-tables, list-flink-catalogs,
+list-flink-databases, list-connectors, list-schemas, list-available-metrics,
+list-clusters, list-compute-pools, search-product-docs
+```
 
 Run it after `terraform apply`:
 
@@ -700,6 +687,8 @@ Requires `jq` (`brew install jq`) and an up-to-date Terraform state.
 | `SCHEMA_REGISTRY_API_SECRET` | ✅ | `terraform output -raw schema_registry_api_secret` | Schema Registry API key secret |
 | `PORT` | ❌ | — | HTTP port for the Express server (default: `3000`) |
 
+> The `env_config` Terraform output also includes `CONFLUENT_CLOUD_API_KEY`, `FLINK_API_KEY`, and other Flink-related variables. These are used by `generate-mcp-config.sh` to populate `server/mcp-config/config.yaml` and `.bob/mcp.json`, but are not read by `server.js` or `generator/producer.js` directly.
+
 ---
 
 ## Terraform Outputs Reference
@@ -725,7 +714,7 @@ After `terraform apply`, the following outputs are available:
 | `flink_api_secret` | ✅ | Flink API key secret |
 | `connection_info` | | Structured map of all endpoints and IDs |
 | `confluent_cloud_console_urls` | | Direct browser links to the Confluent Cloud console |
-| `env_config` | ✅ | Ready-to-paste `.env` content for both services |
+| `env_config` | ✅ | Ready-to-paste `.env` content for both services (includes all roles) |
 | `next_steps` | | Post-deploy instructions |
 
 ```bash
@@ -746,7 +735,6 @@ terraform output next_steps                    # post-deploy checklist
   - `celltower-consumer-sa-dev` — `CloudClusterAdmin` on the Kafka cluster (read access to both topics).
   - `celltower-admin-sa-dev` — `EnvironmentAdmin` + `FlinkDeveloper` + `ResourceOwner` on Schema Registry subjects. Used exclusively by Terraform; its API key is never distributed to application processes.
 - **TLS + SASL/PLAIN.** All Kafka connections use SSL with SASL PLAIN authentication — credentials are never sent in plaintext over the wire.
-- **MCP credentials.** The MCP child process (`server/mcp.js`) inherits the server process environment, which is populated from `server/.env` at startup. No separate credential file is needed for the AI agent.
 
 ---
 
@@ -806,6 +794,6 @@ Run `./scripts/infra-reset.sh` to wipe both the live Confluent Cloud environment
 
 The `event_time` field type changed from Avro `string` to `timestamp-millis` (a breaking change under `BACKWARD` compatibility). [`terraform/schemas.tf`](terraform/schemas.tf) handles this automatically by temporarily setting the subject compatibility to `NONE` via a `null_resource` curl call before registration, then restoring `BACKWARD` afterwards. If this step fails, set the compatibility manually in the Confluent Cloud Schema Registry UI for the `cell-tower-telemetry-value` subject, then re-run `terraform apply`.
 
-### AI chat panel returns no response
+### `generate-mcp-config.sh` fails with `Could not determine ORGANIZATION_ID`
 
-The `POST /api/chat` endpoint is not yet implemented in `server/server.js`. Add the route described in the [MCP Integration](#mcp-integration) section and ensure `server/.env` contains `CONSUMER_API_KEY`, `CONSUMER_API_SECRET`, and `SCHEMA_REGISTRY_URL`.
+The script reads the organisation ID by parsing the `resource_name` field of the `confluent_environment` resource from Terraform's JSON state. This can fail if the state is stale or was produced by a different Terraform version. Run `terraform apply` (even if there are no changes — `terraform apply -refresh-only` suffices) to refresh the state, then re-run the script.
