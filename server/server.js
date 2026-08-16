@@ -108,6 +108,75 @@ async function startAnomalyConsumer() {
   return consumer;
 }
 
+// ─── Parse structured fields out of the raw Gemini response text ─────────────
+// The model is instructed to emit labelled sections; we extract them with simple
+// line-by-line parsing so the dashboard can render structured runbook cards.
+function parseAgentResponse(raw) {
+  if (!raw) return {};
+  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+
+  let severity_level  = null;
+  let diagnosis       = null;
+  let ticket_priority = null;
+  let escalation      = null;
+  const actionLines   = [];
+
+  for (const line of lines) {
+    if (/^SEVERITY:/i.test(line)) {
+      const m = line.match(/^SEVERITY:\s*(.+)/i);
+      if (m) severity_level = m[1].trim().toUpperCase();
+    } else if (/^DIAGNOSIS:/i.test(line)) {
+      const m = line.match(/^DIAGNOSIS:\s*(.+)/i);
+      if (m) diagnosis = m[1].trim();
+    } else if (/^ACTION\d+:/i.test(line)) {
+      const m = line.match(/^ACTION\d+:\s*(.+)/i);
+      if (m) actionLines.push(m[1].trim());
+    } else if (/^ESCALATION:/i.test(line)) {
+      const m = line.match(/^ESCALATION:\s*(.+)/i);
+      if (m) escalation = m[1].trim();
+    } else if (/^TICKET:/i.test(line)) {
+      const m = line.match(/^TICKET:\s*(.+)/i);
+      if (m) ticket_priority = m[1].trim().toUpperCase();
+    }
+  }
+
+  return {
+    severity_level,
+    diagnosis,
+    immediate_actions: actionLines.length ? actionLines.map((a, i) => `${i + 1}. ${a}`).join('\n') : null,
+    escalation,
+    ticket_priority,
+  };
+}
+
+// ─── Consumer: ai-agent-responses ────────────────────────────────────────────
+async function startAgentConsumer() {
+  const consumer = makeKafka('celltower-agent-consumer')
+    .consumer({ groupId: 'dashboard-agent-group' });
+
+  await consumer.connect();
+  await consumer.subscribe({ topic: 'ai-agent-responses', fromBeginning: false });
+
+  await consumer.run({
+    eachMessage: async ({ topic, message }) => {
+      try {
+        const payload = await decode(topic, message.value);
+        if (!payload) return;
+
+        // Enrich with parsed structured fields if not already present
+        if (!payload.severity_level && payload.agent_response) {
+          Object.assign(payload, parseAgentResponse(payload.agent_response));
+        }
+
+        io.emit('agent', payload);
+        console.log(`[server] 🤖 Agent response for ${payload.tower_id} — severity: ${payload.severity_level ?? 'unknown'}`);
+      } catch (_) { /* malformed message — skip */ }
+    },
+  });
+
+  return consumer;
+}
+
 // ─── Socket.io connection log ─────────────────────────────────────────────────
 io.on('connection', (socket) => {
   console.log(`[server] Browser connected: ${socket.id}`);
@@ -118,9 +187,10 @@ io.on('connection', (socket) => {
 
 // ─── Start everything ─────────────────────────────────────────────────────────
 (async () => {
-  const [telemetryConsumer, anomalyConsumer] = await Promise.all([
+  const [telemetryConsumer, anomalyConsumer, agentConsumer] = await Promise.all([
     startTelemetryConsumer(),
     startAnomalyConsumer(),
+    startAgentConsumer(),
   ]);
 
   server.listen(PORT, () => {
@@ -137,6 +207,7 @@ io.on('connection', (socket) => {
       await Promise.all([
         telemetryConsumer.disconnect(),
         anomalyConsumer.disconnect(),
+        agentConsumer.disconnect(),
       ]);
     } catch (err) {
       console.error('[server] Error during disconnect:', err.message);

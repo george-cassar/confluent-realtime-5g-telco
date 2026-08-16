@@ -179,6 +179,13 @@ EOT
   sensitive   = true
 }
 
+# ─── AI Agent ────────────────────────────────────────────────────────────────────
+
+output "agent_flink_statement_name" {
+  description = "Name of the Flink SQL INSERT statement running the Gemini Streaming Agent"
+  value       = confluent_flink_statement.agent_insert.statement_name
+}
+
 # ─── Next Steps ──────────────────────────────────────────────────────────────────
 
 output "next_steps" {

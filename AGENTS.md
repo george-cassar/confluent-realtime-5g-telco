@@ -8,6 +8,7 @@ Real-time 5G cell tower telemetry monitoring demo. Streams mock telemetry into C
 ## Technology Stack
 - **Infrastructure:** Terraform (Confluent Cloud Provider)
 - **Data Streaming & Processing:** Confluent Kafka, Flink SQL
+- **Streaming AI Agent:** Confluent Flink Streaming Agents (`CREATE CONNECTION` → `CREATE MODEL` → `CREATE AGENT` → `AI_RUN_AGENT`) powered by Google Gemini (`googleai` provider, `gemini-2.0-flash`)
 - **Mock Data Generator:** Node.js (KafkaJS)
 - **Frontend/Backend:** Express, Socket.io, Leaflet.js
 - **AI Integration:** `@confluentinc/mcp-confluent` via Node.js MCP Client
@@ -30,8 +31,14 @@ flink/              # Flink SQL statements
 
 ### Kafka / Flink
 - Flink uses **60-second tumbling windows** for anomaly aggregation — do not change window size without updating alert thresholds.
-- Topic naming: use lowercase kebab-case (e.g., `cell-tower-telemetry`, `anomaly-alerts`).
+- Topic naming: use lowercase kebab-case (e.g., `cell-tower-telemetry`, `anomaly-alerts`, `ai-agent-responses`).
 - Flink SQL statements live in `flink/` and are applied via Terraform or Confluent Cloud UI — not run ad-hoc.
+
+### Flink Streaming Agent
+- `flink/gemini_agent.sql` is a **compound statement**: it contains `CREATE CONNECTION`, `CREATE MODEL`, `CREATE AGENT`, and a continuous `INSERT INTO … AI_RUN_AGENT(…)` — all applied as a single `confluent_flink_statement` resource in `terraform/agent.tf`.
+- The Google AI API key is stored in `var.google_api_key` (sensitive) and interpolated via `templatefile()` in Terraform — it is **never** in the `.sql` source file.
+- The agent session key is `CONCAT(tower_id, '_', window_start)` — isolates each 60-second window, preventing cross-alert context bleed.
+- `flink/gemini_agent.sql` must **not** be executed ad-hoc.
 
 ### Node.js Services
 - Package manager: **npm** (use `npm install`, not `yarn` or `pnpm`).
@@ -41,10 +48,10 @@ flink/              # Flink SQL statements
 
 ### Terraform
 - Run all `terraform` commands from the `terraform/` directory.
-- Use `terraform.tfvars` (gitignored) to supply `confluent_cloud_api_key`, `confluent_cloud_api_secret`, and environment IDs.
+- Use `terraform.tfvars` (gitignored) to supply `confluent_cloud_api_key`, `confluent_cloud_api_secret`, `google_api_key`, and environment IDs.
 - Resource naming convention: `<project>-<component>-<env>` (e.g., `celltower-producer-sa-dev`).
 
-## Commands (to be added as files are created)
+## Commands
 | Task | Command |
 |---|---|
 | Install generator deps | `cd generator && npm install` |

@@ -51,3 +51,9 @@ variable "env_suffix" {
   type        = string
   default     = "dev"
 }
+
+variable "google_api_key" {
+  description = "Google AI Studio API key used by the Flink Streaming Agent to call Gemini. Obtain at https://aistudio.google.com/apikey"
+  type        = string
+  sensitive   = true
+}

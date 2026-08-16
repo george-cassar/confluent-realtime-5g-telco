@@ -19,16 +19,13 @@ resource "confluent_kafka_topic" "telemetry" {
 
   config = {
     "cleanup.policy"    = "delete"
-    "retention.ms"      = "604800000" # 7 days
+    "retention.ms"      = "28800000" # 8 hours
     "max.message.bytes" = "1048588"
   }
 
   lifecycle {
     prevent_destroy = false
-    ignore_changes = [
-      config,
-      partitions_count
-    ]
+    ignore_changes  = [partitions_count]
   }
 
   depends_on = [
@@ -54,16 +51,13 @@ resource "confluent_kafka_topic" "anomalies" {
 
   config = {
     "cleanup.policy"    = "delete"
-    "retention.ms"      = "604800000" # 7 days
+    "retention.ms"      = "28800000" # 8 hours
     "max.message.bytes" = "1048588"
   }
 
   lifecycle {
     prevent_destroy = false
-    ignore_changes = [
-      config,
-      partitions_count
-    ]
+    ignore_changes  = [partitions_count]
   }
 
   depends_on = [

@@ -1,0 +1,94 @@
+{
+  "type": "record",
+  "name": "AgentResponse",
+  "namespace": "com.celltower",
+  "doc": "AI-generated NOC runbook produced by the Confluent Flink Streaming Agent (Gemini) for each anomaly-alerts window. Contains both the raw model output and server-parsed structured fields.",
+  "fields": [
+    {
+      "name": "tower_id",
+      "type": "string",
+      "doc": "Tower identifier copied from the source anomaly-alerts record"
+    },
+    {
+      "name": "tower_name",
+      "type": "string",
+      "default": "",
+      "doc": "Human-readable tower location name, e.g. Salamanca"
+    },
+    {
+      "name": "window_start",
+      "type": { "type": "long", "logicalType": "timestamp-millis" },
+      "doc": "Inclusive start of the source 60-second anomaly window (epoch milliseconds)"
+    },
+    {
+      "name": "window_end",
+      "type": { "type": "long", "logicalType": "timestamp-millis" },
+      "doc": "Exclusive end of the source 60-second anomaly window (epoch milliseconds)"
+    },
+    {
+      "name": "avg_temperature",
+      "type": "double",
+      "doc": "Average temperature in the anomaly window (°C), passed to the agent as context"
+    },
+    {
+      "name": "avg_signal",
+      "type": "double",
+      "doc": "Average signal strength in the anomaly window (dBm), passed to the agent as context"
+    },
+    {
+      "name": "max_temperature",
+      "type": "double",
+      "doc": "Peak temperature in the anomaly window (°C)"
+    },
+    {
+      "name": "min_signal",
+      "type": "double",
+      "doc": "Worst signal strength in the anomaly window (dBm)"
+    },
+    {
+      "name": "event_count",
+      "type": "long",
+      "doc": "Number of anomalous events aggregated in the source window"
+    },
+    {
+      "name": "agent_response",
+      "type": "string",
+      "doc": "Full raw AI-generated text produced by the Flink Streaming Agent (Gemini). Contains SEVERITY, DIAGNOSIS, IMMEDIATE_ACTIONS, ESCALATION, and TICKET_PRIORITY sections."
+    },
+    {
+      "name": "severity_level",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Parsed severity extracted from agent_response: CRITICAL, HIGH, MEDIUM, or LOW. Null if unparseable."
+    },
+    {
+      "name": "diagnosis",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Parsed one-sentence root-cause diagnosis extracted from agent_response. Null if unparseable."
+    },
+    {
+      "name": "immediate_actions",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Parsed numbered immediate action steps extracted from agent_response, newline-separated. Null if unparseable."
+    },
+    {
+      "name": "escalation",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Parsed escalation path and trigger condition extracted from agent_response. Null if unparseable."
+    },
+    {
+      "name": "ticket_priority",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Parsed ticket priority extracted from agent_response: P1, P2, P3, or P4. Null if unparseable."
+    },
+    {
+      "name": "processed_at",
+      "type": { "type": "long", "logicalType": "timestamp-millis" },
+      "doc": "Kafka message timestamp assigned by Flink when the response was written to this topic"
+    }
+  ]
+}

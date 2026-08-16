@@ -340,7 +340,7 @@ resource "confluent_api_key" "schema_registry" {
 # so the INSERT INTO job can be submitted directly — no CREATE TABLE needed.
 
 resource "confluent_flink_statement" "anomaly_detection" {
-  statement      = file("${path.module}/../flink/anomaly_detection.sql")
+  statement      = file("${path.module}/../flink/00_stream_anomaly_detection.sql")
   statement_name = "celltower-anomaly-detection-${var.env_suffix}"
   rest_endpoint  = local.flink_rest_endpoint
   properties     = local.flink_properties

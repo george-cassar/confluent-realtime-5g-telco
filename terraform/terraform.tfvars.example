@@ -4,6 +4,10 @@
 confluent_cloud_api_key    = "REPLACE_WITH_YOUR_CLOUD_API_KEY"
 confluent_cloud_api_secret = "REPLACE_WITH_YOUR_CLOUD_API_SECRET"
 
+# Google AI Studio API key for the Flink Streaming Agent (Gemini).
+# Obtain at: https://aistudio.google.com/apikey
+google_api_key = "REPLACE_WITH_YOUR_GOOGLE_AI_API_KEY"
+
 # Optional overrides (defaults are set in variables.tf)
 # environment_name = "celltower-env-dev"
 # cluster_name     = "celltower-kafka-dev"

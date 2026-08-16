@@ -469,6 +469,111 @@
     .alert-row-title { font-size: 13px; font-weight: 600; color: var(--text); font-family: var(--font-mono); }
     .alert-row-sub   { font-size: 12px; color: var(--muted); margin-top: 2px; }
     .alert-row-time  { font-size: 11px; color: var(--muted); font-family: var(--font-mono); white-space: nowrap; }
+
+    /* ══════════════════════════════════════════════════════
+       AI AGENT VIEW
+    ══════════════════════════════════════════════════════ */
+    .agent-feed {
+      flex: 1; overflow-y: auto;
+      padding: 14px 18px;
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    .agent-empty {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      font-size: 13px; color: var(--muted); font-style: italic;
+    }
+
+    /* Severity accent colours */
+    .sev-critical { --sev-c: #fa4d56; --sev-bg: rgba(250,77,86,.12);  --sev-border: rgba(250,77,86,.35); }
+    .sev-high     { --sev-c: #f1c21b; --sev-bg: rgba(241,194,27,.10); --sev-border: rgba(241,194,27,.35); }
+    .sev-medium   { --sev-c: #4589ff; --sev-bg: rgba(69,137,255,.10); --sev-border: rgba(69,137,255,.3);  }
+    .sev-low      { --sev-c: #42be65; --sev-bg: rgba(66,190,101,.10); --sev-border: rgba(66,190,101,.3);  }
+
+    .runbook-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--sev-c, var(--border));
+      border-radius: var(--radius);
+      overflow: hidden;
+      animation: slideIn .25s ease;
+    }
+    .runbook-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--sev-bg, transparent);
+    }
+    .runbook-sev-pill {
+      font-size: 10px; font-weight: 700; letter-spacing: .06em;
+      padding: 2px 8px; border-radius: 3px;
+      background: var(--sev-bg); color: var(--sev-c);
+      border: 1px solid var(--sev-border);
+      font-family: var(--font-mono);
+      flex-shrink: 0;
+    }
+    .runbook-tower {
+      font-size: 13px; font-weight: 700; color: var(--text); font-family: var(--font-mono);
+    }
+    .runbook-loc { font-size: 12px; color: var(--muted); }
+    .runbook-meta {
+      margin-left: auto; display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    }
+    .runbook-ticket {
+      font-size: 10px; font-weight: 700; letter-spacing: .05em;
+      padding: 2px 7px; border-radius: 3px;
+      font-family: var(--font-mono);
+    }
+    .runbook-ticket.p1 { background: rgba(250,77,86,.15);  color: #fa4d56; border: 1px solid rgba(250,77,86,.3);  }
+    .runbook-ticket.p2 { background: rgba(241,194,27,.12); color: #f1c21b; border: 1px solid rgba(241,194,27,.3); }
+    .runbook-ticket.p3 { background: rgba(69,137,255,.12); color: #4589ff; border: 1px solid rgba(69,137,255,.3); }
+    .runbook-ticket.p4 { background: rgba(66,190,101,.1);  color: #42be65; border: 1px solid rgba(66,190,101,.3); }
+    .runbook-time { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
+
+    .runbook-body {
+      padding: 12px 14px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .runbook-section-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+      color: var(--muted); margin-bottom: 3px;
+    }
+    .runbook-diagnosis {
+      font-size: 13px; color: var(--text2); line-height: 1.5;
+    }
+    .runbook-actions {
+      display: flex; flex-direction: column; gap: 5px;
+    }
+    .runbook-action-item {
+      display: flex; gap: 8px; align-items: flex-start;
+      font-size: 13px; color: var(--text2); line-height: 1.4;
+    }
+    .runbook-action-num {
+      flex-shrink: 0;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: var(--surface2); border: 1px solid var(--border-hi);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: var(--accent);
+      font-family: var(--font-mono); margin-top: 1px;
+    }
+    .runbook-escalation {
+      font-size: 12px; color: var(--amber); line-height: 1.4;
+      padding: 6px 10px;
+      background: var(--amber-bg);
+      border: 1px solid rgba(241,194,27,.2);
+      border-radius: 4px;
+    }
+    .runbook-metrics {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 4px 10px;
+      padding: 8px 10px;
+      background: var(--nav);
+      border-radius: 4px;
+      font-size: 11px;
+    }
+    .runbook-metrics .rm-label { color: var(--muted); }
+    .runbook-metrics .rm-val   { font-weight: 600; font-family: var(--font-mono); color: var(--text2); }
+    .runbook-metrics .rm-val.hot  { color: var(--warn); }
+    .runbook-metrics .rm-val.weak { color: var(--warn); }
   </style>
 </head>
 <body>
@@ -524,6 +629,14 @@
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
         <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+    </button>
+    <!-- AI Agent -->
+    <button class="nav-btn" data-view="agent" title="AI Agent Runbooks">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="3"/>
+        <circle cx="8.5" cy="9" r="1.5"/><circle cx="15.5" cy="9" r="1.5"/>
+        <path d="M9 15s1 2 3 2 3-2 3-2"/>
       </svg>
     </button>
     <div class="nav-rail-spacer"></div>
@@ -662,6 +775,17 @@
         <div class="alerts-empty" id="alerts-empty">No anomalies detected yet — all towers nominal.</div>
       </div>
     </div><!-- /view-alerts -->
+
+    <!-- VIEW: AI agent runbooks -->
+    <div class="view-panel" id="view-agent">
+      <div class="panel-header">
+        <span class="panel-header-title">AI Agent Runbooks</span>
+        <span class="panel-header-count" id="agent-view-count">0 runbooks</span>
+      </div>
+      <div class="agent-feed" id="agent-feed">
+        <div class="agent-empty" id="agent-empty">Waiting for AI agent responses — runbooks appear as anomalies are processed by Gemini.</div>
+      </div>
+    </div><!-- /view-agent -->
 
     <!-- Bottom anomaly tray -->
     <div class="bottom-tray">
@@ -1057,6 +1181,136 @@ socket.on('anomaly', d => {
     updateKPIs();
     if (tooltipTarget===id) showTooltip(id);
   }, 90_000);
+});
+
+// ─── AI Agent runbooks ────────────────────────────────────────────────────────
+let totalRunbooks = 0;
+
+// Map a severity string to the CSS class and normalised label
+function sevClass(s) {
+  if (!s) return '';
+  const v = s.toUpperCase();
+  if (v.includes('CRITICAL')) return 'sev-critical';
+  if (v.includes('HIGH'))     return 'sev-high';
+  if (v.includes('MEDIUM'))   return 'sev-medium';
+  if (v.includes('LOW'))      return 'sev-low';
+  return '';
+}
+function sevLabel(s) {
+  if (!s) return 'UNKNOWN';
+  const v = s.toUpperCase();
+  if (v.includes('CRITICAL')) return 'CRITICAL';
+  if (v.includes('HIGH'))     return 'HIGH';
+  if (v.includes('MEDIUM'))   return 'MEDIUM';
+  if (v.includes('LOW'))      return 'LOW';
+  return s;
+}
+function ticketClass(t) {
+  if (!t) return '';
+  const v = t.toUpperCase();
+  if (v.includes('P1')) return 'p1';
+  if (v.includes('P2')) return 'p2';
+  if (v.includes('P3')) return 'p3';
+  if (v.includes('P4')) return 'p4';
+  return '';
+}
+
+// Render numbered action-step items from a newline-separated string
+function renderActions(raw) {
+  if (!raw) return '';
+  return raw.split('\n')
+    .map(line => {
+      // strip leading "1. " numbering — we re-render with styled circles
+      const m = line.match(/^\d+\.\s*(.*)/);
+      const text = m ? m[1] : line;
+      const num  = (line.match(/^(\d+)\./) || [,''])[1];
+      return `<div class="runbook-action-item">
+        <span class="runbook-action-num">${num}</span>
+        <span>${esc(text)}</span>
+      </div>`;
+    })
+    .join('');
+}
+
+socket.on('agent', d => {
+  totalRunbooks++;
+
+  const agentFeedEl  = document.getElementById('agent-feed');
+  const agentEmptyEl = document.getElementById('agent-empty');
+  const agentCountEl = document.getElementById('agent-view-count');
+
+  if (agentEmptyEl) agentEmptyEl.remove();
+  agentCountEl.textContent = `${totalRunbooks} runbook${totalRunbooks !== 1 ? 's' : ''}`;
+
+  const tower = TOWERS.find(t => t.id === d.tower_id) || {};
+  const sc    = sevClass(d.severity_level);
+  const sl    = sevLabel(d.severity_level);
+  const tc    = ticketClass(d.ticket_priority);
+  const ts    = d.window_end ? new Date(d.window_end).toLocaleTimeString() : new Date().toLocaleTimeString();
+
+  const hot  = typeof d.avg_temperature === 'number' && d.avg_temperature > 85;
+  const weak = typeof d.avg_signal       === 'number' && d.avg_signal       < -90;
+
+  // Sections — only render sections that have content
+  const diagnosisHtml = d.diagnosis ? `
+    <div>
+      <div class="runbook-section-label">Diagnosis</div>
+      <div class="runbook-diagnosis">${esc(d.diagnosis)}</div>
+    </div>` : '';
+
+  const actionsHtml = d.immediate_actions ? `
+    <div>
+      <div class="runbook-section-label">Immediate Actions</div>
+      <div class="runbook-actions">${renderActions(d.immediate_actions)}</div>
+    </div>` : '';
+
+  const escalationHtml = d.escalation ? `
+    <div class="runbook-escalation">
+      <strong>Escalation:</strong> ${esc(d.escalation)}
+    </div>` : '';
+
+  const metricsHtml = `
+    <div class="runbook-metrics">
+      <span class="rm-label">Avg Temp</span>
+      <span class="rm-val${hot  ? ' hot'  : ''}">${typeof d.avg_temperature === 'number' ? d.avg_temperature.toFixed(1)+' °C'  : '—'}</span>
+      <span></span>
+      <span class="rm-label">Max Temp</span>
+      <span class="rm-val${hot  ? ' hot'  : ''}">${typeof d.max_temperature === 'number' ? d.max_temperature.toFixed(1)+' °C'  : '—'}</span>
+      <span></span>
+      <span class="rm-label">Avg Signal</span>
+      <span class="rm-val${weak ? ' weak' : ''}">${typeof d.avg_signal === 'number'       ? d.avg_signal.toFixed(1)+' dBm'     : '—'}</span>
+      <span></span>
+      <span class="rm-label">Min Signal</span>
+      <span class="rm-val${weak ? ' weak' : ''}">${typeof d.min_signal === 'number'       ? d.min_signal.toFixed(1)+' dBm'     : '—'}</span>
+      <span></span>
+      <span class="rm-label">Events</span>
+      <span class="rm-val">${d.event_count ?? '—'}</span>
+      <span></span>
+    </div>`;
+
+  const card = document.createElement('div');
+  card.className = `runbook-card ${sc}`;
+  card.innerHTML = `
+    <div class="runbook-header">
+      <span class="runbook-sev-pill">${sl}</span>
+      <div>
+        <div class="runbook-tower">${esc(d.tower_id)}</div>
+        <div class="runbook-loc">${esc(tower.name || d.tower_name || '')}</div>
+      </div>
+      <div class="runbook-meta">
+        ${tc ? `<span class="runbook-ticket ${tc}">${esc(d.ticket_priority)}</span>` : ''}
+        <span class="runbook-time">${ts}</span>
+      </div>
+    </div>
+    <div class="runbook-body">
+      ${metricsHtml}
+      ${diagnosisHtml}
+      ${actionsHtml}
+      ${escalationHtml}
+    </div>`;
+  agentFeedEl.prepend(card);
+
+  console.log(`[dashboard] 🤖 Agent runbook: ${d.tower_id} ${sl}${d.ticket_priority ? ' · ' + d.ticket_priority : ''}`);
 });
 </script>
 </body>

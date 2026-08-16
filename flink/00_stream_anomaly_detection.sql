@@ -1,5 +1,5 @@
 -- =============================================================================
--- anomaly_detection.sql
+-- 00_stream_anomaly_detection.sql
 -- Submitted as a confluent_flink_statement via Terraform.
 --
 -- The producer registers Avro schemas in Schema Registry; Terraform also
